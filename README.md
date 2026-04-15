@@ -7,7 +7,19 @@
 - **Precise Layout Restoration:** Uses the Windows API (`SetWindowPlacement`) to perfectly restore window coordinates and states (Minimized, Maximized, or Normal).
 - **System Event Automation:** Automatically detects display configuration changes (monitor plug/unplug, wake from sleep) and restores your layout after a short safety delay.
 - **Global Hotkeys:** Quick-save (`Alt+Shift+S`) and quick-restore (`Alt+Shift+R`) your layout from any application.
+
+<img width="453" height="275" alt="scr2" src="https://github.com/user-attachments/assets/375dddd8-49ff-4f9d-b74a-01b8fe952185" />
+
+
+
 - **System Tray Interface:** A clean background daemon with a taskbar icon and context menu.
+
+
+
+
+
+<img width="369" height="185" alt="scr1" src="https://github.com/user-attachments/assets/df28f0c4-5894-4fd5-843a-bf82e6d7c69a" />
+
 - **Dynamic Configuration:** Easily change your hotkeys via the built-in "Settings" UI without touching code or config files.
 - **Robust & Thread-Safe:** Optimized for multi-threaded performance with atomic file writes to prevent data corruption.
 
