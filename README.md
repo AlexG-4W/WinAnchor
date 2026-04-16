@@ -20,6 +20,7 @@
 <img width="369" height="185" alt="scr1" src="https://github.com/user-attachments/assets/df28f0c4-5894-4fd5-843a-bf82e6d7c69a" />
 
 - **Dynamic Configuration:** Easily change your hotkeys via the built-in "Settings" UI without touching code or config files.
+
   <img width="453" height="275" alt="scr2" src="https://github.com/user-attachments/assets/375dddd8-49ff-4f9d-b74a-01b8fe952185" />
 
 - **Robust & Thread-Safe:** Optimized for multi-threaded performance with atomic file writes to prevent data corruption.
