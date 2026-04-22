@@ -58,53 +58,44 @@ class HotkeyManager:
             new_restore_hotkey (str): New restore hotkey.
         """
         with self._lock:
-            # Test keys before committing to the unhook process
-            try:
-                # We can't really test without hooking, so we just try to hook them inside a try block
-                # but unhooking first is required to not leave dangling hooks if the new ones fail.
-                pass
-            except Exception:
-                pass
-                
             if self._is_listening:
+                # Register new hotkeys first to temporary variables
                 try:
-                    # Unhook current hotkeys
-                    if self._save_hook:
+                    temp_save_hook = keyboard.add_hotkey(new_save_hotkey, self._safe_save)
+                except Exception as e:
+                    logger.error(f"Failed to register new save hotkey '{new_save_hotkey}': {e}")
+                    raise ValueError(f"Invalid save hotkey: {new_save_hotkey}")
+
+                try:
+                    temp_restore_hook = keyboard.add_hotkey(new_restore_hotkey, self._safe_restore)
+                except Exception as e:
+                    keyboard.remove_hotkey(temp_save_hook)
+                    logger.error(f"Failed to register new restore hotkey '{new_restore_hotkey}': {e}")
+                    raise ValueError(f"Invalid restore hotkey: {new_restore_hotkey}")
+
+                # Both succeeded, now unhook old ones
+                if self._save_hook:
+                    try:
                         keyboard.remove_hotkey(self._save_hook)
-                        self._save_hook = None
                         logger.debug("Removed old save hotkey.")
-                except Exception as e:
-                    logger.debug(f"Could not remove old save hotkey: {e}")
-                    
-                try:
-                    if self._restore_hook:
+                    except Exception as e:
+                        logger.debug(f"Could not remove old save hotkey: {e}")
+                
+                if self._restore_hook:
+                    try:
                         keyboard.remove_hotkey(self._restore_hook)
-                        self._restore_hook = None
                         logger.debug("Removed old restore hotkey.")
-                except Exception as e:
-                    logger.debug(f"Could not remove old restore hotkey: {e}")
+                    except Exception as e:
+                        logger.debug(f"Could not remove old restore hotkey: {e}")
+
+                self._save_hook = temp_save_hook
+                self._restore_hook = temp_restore_hook
+                logger.info(f"Registered new save hotkey: {new_save_hotkey}")
+                logger.info(f"Registered new restore hotkey: {new_restore_hotkey}")
 
             # Update state
             self.save_hotkey = new_save_hotkey
             self.restore_hotkey = new_restore_hotkey
-            
-            if self._is_listening:
-                # Re-register
-                try:
-                    self._save_hook = keyboard.add_hotkey(self.save_hotkey, self._safe_save)
-                    logger.info(f"Registered new save hotkey: {self.save_hotkey}")
-                except Exception as e:
-                    logger.error(f"Failed to register new save hotkey '{self.save_hotkey}': {e}")
-                    raise ValueError(f"Invalid save hotkey: {self.save_hotkey}")
-
-                try:
-                    self._restore_hook = keyboard.add_hotkey(self.restore_hotkey, self._safe_restore)
-                    logger.info(f"Registered new restore hotkey: {self.restore_hotkey}")
-                except Exception as e:
-                    logger.error(f"Failed to register new restore hotkey '{self.restore_hotkey}': {e}")
-                    # Try to rollback save hotkey to keep state consistent? Not strictly required, 
-                    # but raising ValueError will let UI handle it
-                    raise ValueError(f"Invalid restore hotkey: {self.restore_hotkey}")
 
     def start_listening(self) -> None:
         """

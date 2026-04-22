@@ -20,3 +20,6 @@ dist/
 # System files
 .DS_Store
 Thumbs.db
+
+# GitHub export folders
+github_export*/

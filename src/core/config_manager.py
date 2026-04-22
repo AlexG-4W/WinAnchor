@@ -1,7 +1,8 @@
 import json
 import os
 import tempfile
-from typing import Dict
+import threading
+from typing import Dict, Any
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -21,12 +22,15 @@ class ConfigManager:
             
         self.config_dir = os.path.join(appdata, 'WinAnchor')
         self.config_path = os.path.join(self.config_dir, 'config.json')
+        self._lock = threading.Lock()
         
         # Default configuration
         self.config = {
             "save_hotkey": "alt+shift+s",
             "restore_hotkey": "alt+shift+r",
-            "exit_hotkey": "ctrl+shift+q"  # Keep exit hotkey standard or also configurable (optional)
+            "exit_hotkey": "ctrl+shift+q",  # Keep exit hotkey standard or also configurable (optional)
+            "profile_names": ["Profile 1", "Profile 2", "Profile 3", "Profile 4"],
+            "active_profile_index": 0
         }
         
         try:
@@ -48,7 +52,8 @@ class ConfigManager:
                 
             if isinstance(loaded_config, dict):
                 # Update existing config with loaded values (preserves defaults for missing keys)
-                self.config.update(loaded_config)
+                with self._lock:
+                    self.config.update(loaded_config)
                 logger.info(f"Successfully loaded configuration from {self.config_path}")
             else:
                 logger.warning(f"Config file {self.config_path} contains invalid data format. Using defaults.")
@@ -57,35 +62,37 @@ class ConfigManager:
         except Exception as e:
             logger.error(f"Failed to load config from {self.config_path}: {e}. Using defaults.")
 
-    def save_config(self, new_config: Dict[str, str]) -> bool:
+    def save_config(self, new_config: Dict[str, Any]) -> bool:
         """
         Saves the given configuration to disk.
         
         Args:
-            new_config (Dict[str, str]): The dictionary containing configuration data.
+            new_config (Dict[str, Any]): The dictionary containing configuration data.
             
         Returns:
             bool: True if successful, False otherwise.
         """
-        self.config.update(new_config)
-        try:
-            with tempfile.NamedTemporaryFile('w', encoding='utf-8', delete=False, dir=self.config_dir) as f:
-                json.dump(self.config, f, ensure_ascii=False, indent=4)
-                f.flush()
-                os.fsync(f.fileno())
-                temp_name = f.name
-            os.replace(temp_name, self.config_path)
-            logger.info(f"Successfully saved config to {self.config_path}")
-            return True
-        except Exception as e:
-            if 'temp_name' in locals() and os.path.exists(temp_name):
-                try:
-                    os.remove(temp_name)
-                except Exception:
-                    pass
-            logger.error(f"Failed to save config to {self.config_path}: {e}")
-            return False
+        with self._lock:
+            self.config.update(new_config)
+            try:
+                with tempfile.NamedTemporaryFile('w', encoding='utf-8', delete=False, dir=self.config_dir) as f:
+                    json.dump(self.config, f, ensure_ascii=False, indent=4)
+                    f.flush()
+                    os.fsync(f.fileno())
+                    temp_name = f.name
+                os.replace(temp_name, self.config_path)
+                logger.info(f"Successfully saved config to {self.config_path}")
+                return True
+            except Exception as e:
+                if 'temp_name' in locals() and os.path.exists(temp_name):
+                    try:
+                        os.remove(temp_name)
+                    except Exception:
+                        pass
+                logger.error(f"Failed to save config to {self.config_path}: {e}")
+                return False
 
-    def get(self, key: str, default: str = "") -> str:
+    def get(self, key: str, default: Any = "") -> Any:
         """Gets a configuration value."""
-        return self.config.get(key, default)
+        with self._lock:
+            return self.config.get(key, default)

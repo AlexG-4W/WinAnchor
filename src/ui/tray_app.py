@@ -2,7 +2,7 @@ import pystray
 from PIL import Image, ImageDraw
 import threading
 import keyboard
-from typing import Callable
+from typing import Callable, List
 from src.core.window_manager import WindowManager
 from src.core.profile_manager import ProfileManager
 from src.core.hotkey_manager import HotkeyManager
@@ -15,7 +15,6 @@ logger = setup_logger(__name__)
 
 class TrayApp:
     def __init__(self, profile_name: str = "default") -> None:
-        self.profile_name = profile_name
         self.wm = WindowManager()
         self.pm = ProfileManager()
         self.cm = ConfigManager()
@@ -32,6 +31,7 @@ class TrayApp:
             restore_hotkey=restore_hk
         )
         self.el = SystemEventListener(restore_callback=self._on_restore)
+        self._settings_open = False
 
     def _create_icon_image(self) -> Image.Image:
         """Generates a 64x64 icon programmatically."""
@@ -51,12 +51,22 @@ class TrayApp:
         
         return image
 
+    def _get_active_profile_id(self) -> str:
+        try:
+            active_index = int(self.cm.get("active_profile_index", 0))
+        except (TypeError, ValueError):
+            active_index = 0
+        profile_names = self.cm.get("profile_names", ["Profile 1", "Profile 2", "Profile 3", "Profile 4"])
+        active_index = max(0, min(active_index, len(profile_names) - 1))
+        return f"profile_{active_index + 1}"
+
     def _on_save(self, icon=None, item=None) -> None:
         with self._action_lock:
-            logger.info(f"Tray: Fetching current window states for profile '{self.profile_name}'...")
+            profile_id = self._get_active_profile_id()
+            logger.info(f"Tray: Fetching current window states for profile '{profile_id}'...")
             try:
                 states = self.wm.get_windows_state()
-                if self.pm.save_profile(states, self.profile_name):
+                if self.pm.save_profile(states, profile_id):
                     logger.info(f"Tray: Successfully saved {len(states)} windows.")
                 else:
                     logger.error("Tray: Failed to save profile.")
@@ -65,9 +75,10 @@ class TrayApp:
 
     def _on_restore(self, icon=None, item=None) -> None:
         with self._action_lock:
-            logger.info(f"Tray: Loading window states from profile '{self.profile_name}'...")
+            profile_id = self._get_active_profile_id()
+            logger.info(f"Tray: Loading window states from profile '{profile_id}'...")
             try:
-                states = self.pm.load_profile(self.profile_name)
+                states = self.pm.load_profile(profile_id)
                 if states:
                     self.wm.restore_windows_state(states)
                     logger.info(f"Tray: Successfully restored {len(states)} windows.")
@@ -76,21 +87,77 @@ class TrayApp:
             except Exception as e:
                 logger.error(f"Tray: Error during restore: {e}")
             
-    def _on_settings_saved(self, new_save_hk: str, new_restore_hk: str) -> None:
-        """Callback from settings dialog when saving new hotkeys."""
-        self.hm.update_hotkeys(new_save_hk, new_restore_hk)
-        self.cm.save_config({"save_hotkey": new_save_hk, "restore_hotkey": new_restore_hk})
+    def _on_settings_saved(self, new_save_hk: str, new_restore_hk: str, new_names: List[str]) -> None:
+        """Callback from settings dialog when saving new hotkeys and profile names."""
+        try:
+            self.hm.update_hotkeys(new_save_hk, new_restore_hk)
+        except Exception as e:
+            logger.error(f"Tray: Failed to update hotkeys: {e}")
+            raise
+            
+        self.cm.save_config({
+            "save_hotkey": new_save_hk, 
+            "restore_hotkey": new_restore_hk,
+            "profile_names": new_names
+        })
         logger.info("Tray: Settings updated.")
+        if self.icon:
+            self.icon.update_menu()
 
     def _on_settings(self, icon=None, item=None) -> None:
+        if self._settings_open:
+            logger.info("Tray: Settings dialog is already open.")
+            return
+
+        self._settings_open = True
         logger.info("Tray: Opening settings dialog...")
+        
         save_hk = self.cm.get("save_hotkey", "alt+shift+s")
         restore_hk = self.cm.get("restore_hotkey", "alt+shift+r")
-        dialog = SettingsDialog(save_hk, restore_hk, self._on_settings_saved)
-        # Start dialog in a new thread so we don't block the tray icon event loop
-        # Tkinter requires to be run in the main thread typically, but pystray blocks main thread.
-        # Starting Tk in a side thread usually works on Windows as long as the entire Tk lifecycle is within that thread.
-        threading.Thread(target=dialog.show, daemon=True).start()
+        profile_names = self.cm.get("profile_names", ["Profile 1", "Profile 2", "Profile 3", "Profile 4"])
+        
+        def run_dialog():
+            try:
+                dialog = SettingsDialog(save_hk, restore_hk, profile_names, self._on_settings_saved)
+                dialog.show()
+            finally:
+                self._settings_open = False
+
+        threading.Thread(target=run_dialog, daemon=True).start()
+
+    def _get_menu_items(self):
+        profile_names = self.cm.get("profile_names", ["Profile 1", "Profile 2", "Profile 3", "Profile 4"])
+        
+        def set_profile(index):
+            def handler(icon, item):
+                self.cm.save_config({"active_profile_index": index})
+                if self.icon:
+                    self.icon.update_menu()
+            return handler
+            
+        def is_profile_checked(index):
+            def handler(item):
+                return self.cm.get("active_profile_index", 0) == index
+            return handler
+            
+        profile_items = []
+        for i, name in enumerate(profile_names):
+            profile_items.append(
+                pystray.MenuItem(
+                    name,
+                    set_profile(i),
+                    radio=True,
+                    checked=is_profile_checked(i)
+                )
+            )
+            
+        yield pystray.MenuItem("Save Layout", self._on_save)
+        yield pystray.MenuItem("Restore Layout", self._on_restore)
+        yield pystray.Menu.SEPARATOR
+        yield pystray.MenuItem("Active Profile", pystray.Menu(*profile_items))
+        yield pystray.Menu.SEPARATOR
+        yield pystray.MenuItem("Settings...", self._on_settings)
+        yield pystray.MenuItem("Quit", self._on_quit)
 
     def _on_quit(self, icon, item) -> None:
         logger.info("Tray: Quitting application...")
@@ -136,14 +203,7 @@ class TrayApp:
         logger.info("Initializing TrayApp...")
         
         image = self._create_icon_image()
-        menu = pystray.Menu(
-            pystray.MenuItem("Save Layout (Default)", self._on_save),
-            pystray.MenuItem("Restore Layout (Default)", self._on_restore),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Settings...", self._on_settings),
-            pystray.MenuItem("Quit", self._on_quit)
-        )
-        self.icon = pystray.Icon("WinAnchor", image, "WinAnchor", menu)
+        self.icon = pystray.Icon("WinAnchor", image, "WinAnchor", menu=pystray.Menu(self._get_menu_items))
         
         # Start HotkeyManager in a daemon thread so pystray's blocking run() works
         hk_thread = threading.Thread(target=self._run_hotkey_listener, daemon=True)

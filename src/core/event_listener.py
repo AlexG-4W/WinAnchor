@@ -2,6 +2,7 @@ import win32gui
 import win32con
 import win32api
 import threading
+import pywintypes
 from typing import Callable, Optional
 from src.utils.logger import setup_logger
 
@@ -68,9 +69,12 @@ class SystemEventListener:
 
         try:
             win32gui.RegisterClass(wc)
-        except Exception:
-            # Class might already be registered if start() was called multiple times or app restarted
-            pass
+        except pywintypes.error as e:
+            if e.winerror == 1410:  # ERROR_CLASS_ALREADY_EXISTS
+                pass
+            else:
+                logger.error(f"Failed to register window class: {e}")
+                raise
 
         # Create a message-only window
         try:
