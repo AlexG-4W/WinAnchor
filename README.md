@@ -2,70 +2,91 @@
 
 **WinAnchor** is a lightweight Windows background utility designed to automatically save and restore the positions, sizes, and states (minimized/maximized/normal) of all open windows across multi-monitor setups. It's especially useful for users whose window layouts break after waking from sleep mode or disconnecting/reconnecting monitors.
 
-## Key Features
+## Features
 
-- **Precise Layout Restoration:** Uses the Windows API (`SetWindowPlacement`) to perfectly restore window coordinates and states (Minimized, Maximized, or Normal).
-- **System Event Automation:** Automatically detects display configuration changes (monitor plug/unplug, wake from sleep) and restores your layout after a short safety delay.
-- **Global Hotkeys:** Quick-save (`Alt+Shift+S`) and quick-restore (`Alt+Shift+R`) your layout from any application.
+- **Save and Restore Window Layouts:** Accurately captures the precise coordinates and window states of all open, visible applications.
+- **4-Slot Profile System (New in v1.1):** Save and easily switch between up to 4 independent window layout profiles right from the system tray.
 
-
-
-
-- **System Tray Interface:** A clean background daemon with a taskbar icon and context menu.
+<img width="475" height="231" alt="scr1" src="https://github.com/user-attachments/assets/84910cfa-656c-4e2c-a3f2-59c46f22e828" />
 
 
+- **Dynamic Settings UI (New in v1.1):** A modern settings dialog to configure custom global hotkeys and uniquely rename your 4 layout profiles.
 
 
+<img width="524" height="622" alt="scr2" src="https://github.com/user-attachments/assets/fa982de3-4239-48f6-a2ea-e2c9b82f5d55" />
 
-<img width="369" height="185" alt="scr1" src="https://github.com/user-attachments/assets/df28f0c4-5894-4fd5-843a-bf82e6d7c69a" />
 
-- **Dynamic Configuration:** Easily change your hotkeys via the built-in "Settings" UI without touching code or config files.
-
-  <img width="453" height="275" alt="scr2" src="https://github.com/user-attachments/assets/375dddd8-49ff-4f9d-b74a-01b8fe952185" />
-
-- **Robust & Thread-Safe:** Optimized for multi-threaded performance with atomic file writes to prevent data corruption.
+- **System Event Automation:** Runs silently in the background and automatically restores your active window layout when it detects a display configuration change (e.g., waking from sleep, connecting a new monitor).
+- **System Tray Interface:** Manage the application and select your active profile directly from the Windows taskbar.
+- **Global Hotkeys:** Use keyboard shortcuts to quickly save or restore your active profile from anywhere in Windows.
+- **Multi-Monitor Support:** Perfectly places windows back to their original screens and scales using the Windows API (`SetWindowPlacement`).
 
 ## Installation (from Source)
 
 ### Prerequisites
+
 - Python 3.10 or higher
-- Windows 10/11
+- Windows OS
 
 ### Setup
+
 1. Clone the repository:
    ```bash
    git clone https://github.com/yourusername/WinAnchor.git
    cd WinAnchor
    ```
-2. Install dependencies:
+
+2. Install the required dependencies:
    ```bash
    pip install -r requirements.txt
    ```
+
 3. Run the application:
    ```bash
+   # Launch the System Tray application
    python run.py tray
+   
+   # Or launch the interactive CLI menu for testing
+   python run.py interactive
    ```
 
-## Compiling to Executable (.exe)
-To build a standalone, single-file executable that doesn't require Python:
-1. Ensure `pyinstaller` is installed (`pip install pyinstaller`).
-2. Run the build script:
+## Compiling to a Standalone Executable (.exe)
+
+You can build WinAnchor into a single-file Windows executable, so it can run on machines without Python installed.
+
+1. Make sure all dependencies (including `pyinstaller`) are installed:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Run the included build script:
    ```cmd
    build.bat
    ```
-3. Your executable will be in the `dist/WinAnchor.exe` folder.
 
-## Technical Architecture
-- **`src/core/`**: Contains the Windows API logic, system event listeners, and state/config managers.
-- **`src/ui/`**: Implementation of the System Tray interface (`pystray`) and Settings GUI (`tkinter`).
-- **`src/utils/`**: Robust logging utility that writes to `%APPDATA%\WinAnchor\winanchor.log`.
+3. The compiled standalone executable `WinAnchor.exe` will be generated in the `dist/` directory. You can move this `.exe` anywhere or add it to your Windows Startup folder (`shell:startup`) for automatic execution on boot.
 
-## QA & Reliability
-This version includes the **Stage 9 QA Patchset**, which introduced:
-- Atomic JSON persistence (via `tempfile` + `os.replace`).
-- Thread-safe UI/Hotkey callbacks using `threading.Lock`.
-- Top-level window event interception for reliable `WM_DISPLAYCHANGE` detection.
-- Guaranteed handle cleanup for Windows API calls.
+## Usage
+
+When WinAnchor is running in background mode (System Tray):
+- **System Tray Icon:** Right-click the blue "W" icon in your taskbar to access the menu.
+- **Active Profile:** Use the "Active Profile" submenu to switch between 4 configurable layout profiles.
+- **Save Layout:** Select "Save Layout" or press your configured Save Hotkey (default: `Alt+Shift+S`) to save to the currently active profile.
+- **Restore Layout:** Select "Restore Layout" or press your configured Restore Hotkey (default: `Alt+Shift+R`) to load the currently active profile.
+- **Settings:** Click "Settings..." in the tray menu to rename your profiles and change your hotkeys.
+
+*Note: WinAnchor automatically restores your active layout when your monitors wake from sleep or reconnect.*
+
+## Architecture
+
+- **`src/core/window_manager.py`**: Interacts with the `win32gui` Windows API to read and set window placements.
+- **`src/core/profile_manager.py`**: Serializes layout data into JSON and stores it in `%APPDATA%\WinAnchor\profiles\`.
+- **`src/core/hotkey_manager.py`**: Listens for global keyboard shortcuts using the `keyboard` library.
+- **`src/core/event_listener.py`**: Runs a hidden message pump to intercept `WM_DISPLAYCHANGE` events for automatic layout restoration.
+- **`src/core/config_manager.py`**: Manages user preferences (like custom hotkeys) in `%APPDATA%\WinAnchor\config.json`.
+- **`src/ui/tray_app.py`**: Renders the System Tray icon and context menu using `pystray`.
+- **`src/ui/settings_dialog.py`**: Provides a lightweight `tkinter` GUI for settings configuration.
 
 ## License
-MIT License.
+
+This project is licensed under the MIT License.
