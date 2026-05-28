@@ -12,6 +12,12 @@
 - **Global Hotkeys:** Use keyboard shortcuts to quickly save or restore your active profile from anywhere in Windows.
 - **Multi-Monitor Support:** Perfectly places windows back to their original screens and scales using the Windows API (`SetWindowPlacement`).
 
+<img width="475" height="231" alt="scr1" src="https://github.com/user-attachments/assets/060cf41b-dd26-4099-879d-b2f4136c10d2" />
+
+<img width="524" height="622" alt="scr2" src="https://github.com/user-attachments/assets/818642d3-38fd-42b7-b0d8-591963787fd1" />
+
+
+
 ## Installation (from Source)
 
 ### Prerequisites
