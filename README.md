@@ -6,16 +6,7 @@
 
 - **Save and Restore Window Layouts:** Accurately captures the precise coordinates and window states of all open, visible applications.
 - **4-Slot Profile System (New in v1.1):** Save and easily switch between up to 4 independent window layout profiles right from the system tray.
-
-<img width="475" height="231" alt="scr1" src="https://github.com/user-attachments/assets/84910cfa-656c-4e2c-a3f2-59c46f22e828" />
-
-
 - **Dynamic Settings UI (New in v1.1):** A modern settings dialog to configure custom global hotkeys and uniquely rename your 4 layout profiles.
-
-
-<img width="524" height="622" alt="scr2" src="https://github.com/user-attachments/assets/fa982de3-4239-48f6-a2ea-e2c9b82f5d55" />
-
-
 - **System Event Automation:** Runs silently in the background and automatically restores your active window layout when it detects a display configuration change (e.g., waking from sleep, connecting a new monitor).
 - **System Tray Interface:** Manage the application and select your active profile directly from the Windows taskbar.
 - **Global Hotkeys:** Use keyboard shortcuts to quickly save or restore your active profile from anywhere in Windows.
