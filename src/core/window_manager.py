@@ -73,6 +73,23 @@ class WindowManager:
             except Exception:
                 pass
 
+            # 5. Owner Window Check
+            # Skip the window if it has an owner, unless it explicitly requests to be an app window on the taskbar.
+            owner = win32gui.GetWindow(hwnd, win32con.GW_OWNER)
+            if owner != 0 and not (ex_style & win32con.WS_EX_APPWINDOW):
+                return
+
+            # 6. Zero-Geometry Check
+            # Fetch the window placement and skip it if its normal width or height is 0 (classic trait of invisible background listeners like Logitech PnpMg).
+            try:
+                _, _, _, _, rect = win32gui.GetWindowPlacement(hwnd)
+                width = rect[2] - rect[0]
+                height = rect[3] - rect[1]
+                if width <= 0 or height <= 0:
+                    return
+            except Exception:
+                pass
+
             try:
                 title = win32gui.GetWindowText(hwnd)
                 class_name = win32gui.GetClassName(hwnd)
@@ -181,6 +198,23 @@ class WindowManager:
                     hwnd, DWMWA_CLOAKED, ctypes.byref(cloaked), ctypes.sizeof(cloaked)
                 )
                 if cloaked.value != 0:
+                    return
+            except Exception:
+                pass
+
+            # 5. Owner Window Check
+            # Skip the window if it has an owner, unless it explicitly requests to be an app window on the taskbar.
+            owner = win32gui.GetWindow(hwnd, win32con.GW_OWNER)
+            if owner != 0 and not (ex_style & win32con.WS_EX_APPWINDOW):
+                return
+
+            # 6. Zero-Geometry Check
+            # Fetch the window placement and skip it if its normal width or height is 0 (classic trait of invisible background listeners like Logitech PnpMg).
+            try:
+                _, _, _, _, rect = win32gui.GetWindowPlacement(hwnd)
+                width = rect[2] - rect[0]
+                height = rect[3] - rect[1]
+                if width <= 0 or height <= 0:
                     return
             except Exception:
                 pass
