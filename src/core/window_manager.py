@@ -8,6 +8,15 @@ from difflib import SequenceMatcher
 from typing import List, Dict, Any, Optional, Tuple
 from src.utils.logger import setup_logger
 
+try:
+    import ctypes
+    ctypes.windll.shcore.SetProcessDpiAwareness(2)
+except Exception:
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
+
 logger = setup_logger(__name__)
 
 # --- Matching score weights ---
@@ -79,10 +88,13 @@ class WindowManager:
             if owner != 0 and not (ex_style & win32con.WS_EX_APPWINDOW):
                 return
 
-            # 6. Zero-Geometry Check
-            # Fetch the window placement and skip it if its normal width or height is 0 (classic trait of invisible background listeners like Logitech PnpMg).
+            # 6. Strict Zero-Geometry & Blacklist Check
             try:
-                _, _, _, _, rect = win32gui.GetWindowPlacement(hwnd)
+                title_lower = win32gui.GetWindowText(hwnd).lower()
+                if title_lower in ["pnpmgr", "pnpmg"]:
+                    return
+
+                rect = win32gui.GetWindowRect(hwnd)
                 width = rect[2] - rect[0]
                 height = rect[3] - rect[1]
                 if width <= 0 or height <= 0:
@@ -208,10 +220,13 @@ class WindowManager:
             if owner != 0 and not (ex_style & win32con.WS_EX_APPWINDOW):
                 return
 
-            # 6. Zero-Geometry Check
-            # Fetch the window placement and skip it if its normal width or height is 0 (classic trait of invisible background listeners like Logitech PnpMg).
+            # 6. Strict Zero-Geometry & Blacklist Check
             try:
-                _, _, _, _, rect = win32gui.GetWindowPlacement(hwnd)
+                title_lower = win32gui.GetWindowText(hwnd).lower()
+                if title_lower in ["pnpmgr", "pnpmg"]:
+                    return
+
+                rect = win32gui.GetWindowRect(hwnd)
                 width = rect[2] - rect[0]
                 height = rect[3] - rect[1]
                 if width <= 0 or height <= 0:
