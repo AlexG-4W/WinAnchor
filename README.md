@@ -17,10 +17,10 @@
 - **Multi-Monitor Support:** Precisely places windows back to their original screens using the Windows API (`SetWindowPlacement` + `MoveWindow`).
 - **Ghost Window Filtering:** Filters out invisible phantom windows (DWM-cloaked apps, tool windows, zero-geometry listeners) using physical `GetWindowRect` checks and a configurable title/process blacklist.
 
+<img width="389" height="626" alt="scr 1 v1 3" src="https://github.com/user-attachments/assets/e237d45b-afcd-4216-9d72-12670451aac4" />
 
-![[scr2 v1.3.jpg]]
+<img width="257" height="224" alt="scr2 v1 3" src="https://github.com/user-attachments/assets/8233e9e7-da4a-4c35-9ca8-4a82747e4e90" />
 
-![[scr 1 v1.3.jpg]]
 
 ## Installation (from Source)
 
