@@ -63,9 +63,10 @@ class TrayApp:
     def _on_save(self, icon=None, item=None) -> None:
         with self._action_lock:
             profile_id = self._get_active_profile_id()
+            ignored_windows = self.cm.get("ignored_windows", ["pnpmgr", "pnpmg"])
             logger.info(f"Tray: Fetching current window states for profile '{profile_id}'...")
             try:
-                states = self.wm.get_windows_state()
+                states = self.wm.get_windows_state(ignored_windows)
                 if self.pm.save_profile(states, profile_id):
                     logger.info(f"Tray: Successfully saved {len(states)} windows.")
                 else:
@@ -76,19 +77,20 @@ class TrayApp:
     def _on_restore(self, icon=None, item=None) -> None:
         with self._action_lock:
             profile_id = self._get_active_profile_id()
+            ignored_windows = self.cm.get("ignored_windows", ["pnpmgr", "pnpmg"])
             logger.info(f"Tray: Loading window states from profile '{profile_id}'...")
             try:
                 states = self.pm.load_profile(profile_id)
                 if states:
-                    self.wm.restore_windows_state(states)
+                    self.wm.restore_windows_state(states, ignored_windows)
                     logger.info(f"Tray: Successfully restored {len(states)} windows.")
                 else:
                     logger.warning("Tray: No valid state found in profile.")
             except Exception as e:
                 logger.error(f"Tray: Error during restore: {e}")
             
-    def _on_settings_saved(self, new_save_hk: str, new_restore_hk: str, new_names: List[str]) -> None:
-        """Callback from settings dialog when saving new hotkeys and profile names."""
+    def _on_settings_saved(self, new_save_hk: str, new_restore_hk: str, new_names: List[str], new_ignored: List[str]) -> None:
+        """Callback from settings dialog when saving new hotkeys, profile names, and ignored windows."""
         try:
             self.hm.update_hotkeys(new_save_hk, new_restore_hk)
         except Exception as e:
@@ -98,7 +100,8 @@ class TrayApp:
         self.cm.save_config({
             "save_hotkey": new_save_hk, 
             "restore_hotkey": new_restore_hk,
-            "profile_names": new_names
+            "profile_names": new_names,
+            "ignored_windows": new_ignored
         })
         logger.info("Tray: Settings updated.")
         if self.icon:
@@ -115,10 +118,11 @@ class TrayApp:
         save_hk = self.cm.get("save_hotkey", "alt+shift+s")
         restore_hk = self.cm.get("restore_hotkey", "alt+shift+r")
         profile_names = self.cm.get("profile_names", ["Profile 1", "Profile 2", "Profile 3", "Profile 4"])
+        ignored_windows = self.cm.get("ignored_windows", ["pnpmgr", "pnpmg"])
         
         def run_dialog():
             try:
-                dialog = SettingsDialog(save_hk, restore_hk, profile_names, self._on_settings_saved)
+                dialog = SettingsDialog(save_hk, restore_hk, profile_names, ignored_windows, self._on_settings_saved)
                 dialog.show()
             finally:
                 self._settings_open = False

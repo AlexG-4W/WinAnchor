@@ -43,17 +43,21 @@ class WindowManager:
     # Save Phase
     # ------------------------------------------------------------------
 
-    def get_windows_state(self) -> List[Dict[str, Any]]:
+    def get_windows_state(self, ignored_windows: List[str] = None) -> List[Dict[str, Any]]:
         """
         Iterates through all top-level windows and retrieves their states.
         Captures visible and minimized windows on the active virtual desktop.
         Filters out tool windows, cloaked (background/other-desktop) windows,
         and windows with no title.
 
+        Args:
+            ignored_windows (List[str]): Substrings to match against title/process for blacklisting.
+
         Returns:
             List[Dict[str, Any]]: A list of dictionaries containing window states.
                                   Order follows EnumWindows z-order (top → bottom).
         """
+        ignored = [ign.lower() for ign in (ignored_windows or ["pnpmgr", "pnpmg"])]
         windows_state: List[Dict[str, Any]] = []
 
         def enum_windows_callback(hwnd: int, ctx: List[Dict[str, Any]]) -> None:
@@ -91,7 +95,13 @@ class WindowManager:
             # 6. Strict Zero-Geometry & Blacklist Check
             try:
                 title_lower = win32gui.GetWindowText(hwnd).lower()
-                if title_lower in ["pnpmgr", "pnpmg"]:
+
+                # Get process name early for the blacklist check
+                _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                process_name = self._get_process_name_from_pid(pid)
+                proc_lower = (process_name or "").lower()
+
+                if any(ign in title_lower or ign in proc_lower for ign in ignored):
                     return
 
                 rect = win32gui.GetWindowRect(hwnd)
@@ -180,12 +190,16 @@ class WindowManager:
             pass
         return None
 
-    def _enumerate_live_windows(self) -> List[Dict[str, Any]]:
+    def _enumerate_live_windows(self, ignored_windows: List[str] = None) -> List[Dict[str, Any]]:
         """
         Enumerates all currently-live windows with the same criteria used
         during the save phase.  Returns a list of lightweight fingerprint
         dicts (hwnd, title, class_name, process_name, rcNormalPosition).
+
+        Args:
+            ignored_windows (List[str]): Substrings to match against title/process for blacklisting.
         """
+        ignored = [ign.lower() for ign in (ignored_windows or ["pnpmgr", "pnpmg"])]
         live: List[Dict[str, Any]] = []
 
         def callback(hwnd: int, ctx: List[Dict[str, Any]]) -> None:
@@ -223,7 +237,13 @@ class WindowManager:
             # 6. Strict Zero-Geometry & Blacklist Check
             try:
                 title_lower = win32gui.GetWindowText(hwnd).lower()
-                if title_lower in ["pnpmgr", "pnpmg"]:
+
+                # Get process name early for the blacklist check
+                _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                process_name = self._get_process_name_from_pid(pid)
+                proc_lower = (process_name or "").lower()
+
+                if any(ign in title_lower or ign in proc_lower for ign in ignored):
                     return
 
                 rect = win32gui.GetWindowRect(hwnd)
@@ -343,7 +363,7 @@ class WindowManager:
     # Restore Phase
     # ------------------------------------------------------------------
 
-    def restore_windows_state(self, states: List[Dict[str, Any]]) -> None:
+    def restore_windows_state(self, states: List[Dict[str, Any]], ignored_windows: List[str] = None) -> None:
         """
         Restores windows to their saved placement using multi-signal fuzzy
         matching instead of raw HWND lookup.
@@ -357,13 +377,14 @@ class WindowManager:
 
         Args:
             states (List[Dict[str, Any]]): List of saved window state dicts.
+            ignored_windows (List[str]): Substrings to match against title/process for blacklisting.
         """
         if not states:
             logger.warning("No states to restore.")
             return
 
         # 1. Discover all currently-live windows
-        live_windows = self._enumerate_live_windows()
+        live_windows = self._enumerate_live_windows(ignored_windows)
         logger.info(f"Discovered {len(live_windows)} live windows for matching.")
 
         # 2. Build a score matrix and perform greedy 1:1 assignment
@@ -439,10 +460,16 @@ class WindowManager:
                     # Inject our saved configuration
                     new_placement = (flags, showCmd, ptMin, ptMax, tuple(rcNormalPosition))
                     win32gui.SetWindowPlacement(hwnd, new_placement)
-                    logger.info(
-                        f"Restored window placement: {title} (HWND: {hwnd}) "
-                        f"to showCmd {showCmd}, rect {rcNormalPosition}"
-                    )
+
+                    # NEW FIX: Enforce raw physical pixels for normal windows to prevent DPI bleed
+                    if showCmd == win32con.SW_SHOWNORMAL and all(v is not None for v in (x, y, width, height)):
+                        win32gui.MoveWindow(hwnd, x, y, width, height, True)
+                        logger.info(f"Applied strict physical bounds via MoveWindow for {title}")
+                    else:
+                        logger.info(
+                            f"Restored window placement: {title} (HWND: {hwnd}) "
+                            f"to showCmd {showCmd}, rect {rcNormalPosition}"
+                        )
                 except pywintypes.error as e:
                     logger.error(
                         f"Access denied or error placing window {title} (HWND: {hwnd}): {e}"

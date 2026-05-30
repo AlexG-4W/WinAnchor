@@ -5,18 +5,22 @@
 ## Features
 
 - **Save and Restore Window Layouts:** Accurately captures the precise coordinates and window states of all open, visible applications.
-- **4-Slot Profile System (New in v1.1):** Save and easily switch between up to 4 independent window layout profiles right from the system tray.
-- **Dynamic Settings UI (New in v1.1):** A modern settings dialog to configure custom global hotkeys and uniquely rename your 4 layout profiles.
+- **4-Slot Profile System:** Save and easily switch between up to 4 independent window layout profiles right from the system tray.
+- **Dynamic Settings UI:** A modern settings dialog to configure custom global hotkeys, rename your layout profiles, and manage your ignored windows list.
+- **User-Defined Window Blacklist (New in v1.3):** Configure a personal list of window titles or process names to ignore (e.g., `pnpmgr`, `overlay.exe`). Managed directly from the Settings dialog as a comma-separated list, persisted in config.
+- **Per-Monitor DPI Awareness (New in v1.3):** Calls `SetProcessDpiAwareness(2)` at startup so Windows reports true physical pixel coordinates across all monitors — no more DPI-virtualized misplacements on mixed-scale setups.
+- **DPI Boundary Bleed Fix (New in v1.3):** For normal-state windows, enforces saved physical coordinates via `MoveWindow` after `SetWindowPlacement` to prevent windows from bleeding onto the wrong monitor at DPI boundaries.
+- **Multi-Signal Window Fingerprinting:** Matches saved windows to live windows across sessions using a weighted scoring system (process name, class name, geometry, fuzzy title matching) instead of fragile HWND handles.
 - **System Event Automation:** Runs silently in the background and automatically restores your active window layout when it detects a display configuration change (e.g., waking from sleep, connecting a new monitor).
 - **System Tray Interface:** Manage the application and select your active profile directly from the Windows taskbar.
 - **Global Hotkeys:** Use keyboard shortcuts to quickly save or restore your active profile from anywhere in Windows.
-- **Multi-Monitor Support:** Perfectly places windows back to their original screens and scales using the Windows API (`SetWindowPlacement`).
-
-<img width="475" height="231" alt="scr1" src="https://github.com/user-attachments/assets/060cf41b-dd26-4099-879d-b2f4136c10d2" />
-
-<img width="524" height="622" alt="scr2" src="https://github.com/user-attachments/assets/818642d3-38fd-42b7-b0d8-591963787fd1" />
+- **Multi-Monitor Support:** Precisely places windows back to their original screens using the Windows API (`SetWindowPlacement` + `MoveWindow`).
+- **Ghost Window Filtering:** Filters out invisible phantom windows (DWM-cloaked apps, tool windows, zero-geometry listeners) using physical `GetWindowRect` checks and a configurable title/process blacklist.
 
 
+![[scr2 v1.3.jpg]]
+
+![[scr 1 v1.3.jpg]]
 
 ## Installation (from Source)
 
@@ -70,19 +74,39 @@ When WinAnchor is running in background mode (System Tray):
 - **Active Profile:** Use the "Active Profile" submenu to switch between 4 configurable layout profiles.
 - **Save Layout:** Select "Save Layout" or press your configured Save Hotkey (default: `Alt+Shift+S`) to save to the currently active profile.
 - **Restore Layout:** Select "Restore Layout" or press your configured Restore Hotkey (default: `Alt+Shift+R`) to load the currently active profile.
-- **Settings:** Click "Settings..." in the tray menu to rename your profiles and change your hotkeys.
+- **Settings:** Click "Settings..." in the tray menu to rename your profiles, change your hotkeys, and edit the ignored windows blacklist.
 
 *Note: WinAnchor automatically restores your active layout when your monitors wake from sleep or reconnect.*
 
 ## Architecture
 
-- **`src/core/window_manager.py`**: Interacts with the `win32gui` Windows API to read and set window placements.
+- **`src/core/window_manager.py`**: Interacts with the `win32gui` Windows API to read and set window placements. Implements DPI awareness, multi-signal fingerprinting, and ghost window filtering.
 - **`src/core/profile_manager.py`**: Serializes layout data into JSON and stores it in `%APPDATA%\WinAnchor\profiles\`.
 - **`src/core/hotkey_manager.py`**: Listens for global keyboard shortcuts using the `keyboard` library.
 - **`src/core/event_listener.py`**: Runs a hidden message pump to intercept `WM_DISPLAYCHANGE` events for automatic layout restoration.
-- **`src/core/config_manager.py`**: Manages user preferences (like custom hotkeys) in `%APPDATA%\WinAnchor\config.json`.
+- **`src/core/config_manager.py`**: Manages user preferences (hotkeys, profile names, ignored windows list) in `%APPDATA%\WinAnchor\config.json`.
 - **`src/ui/tray_app.py`**: Renders the System Tray icon and context menu using `pystray`.
-- **`src/ui/settings_dialog.py`**: Provides a lightweight `tkinter` GUI for settings configuration.
+- **`src/ui/settings_dialog.py`**: Provides a lightweight `tkinter` GUI for configuring hotkeys, profile names, and the window blacklist.
+
+## Changelog
+
+### v1.3 — Multi-Monitor DPI & User Blacklist
+- **Per-Monitor DPI Awareness:** `SetProcessDpiAwareness(2)` with fallback to `SetProcessDPIAware()`, ensuring true physical coordinates on mixed-scale multi-monitor setups.
+- **DPI Boundary Bleed Fix:** Normal-state windows are repositioned via `MoveWindow` after `SetWindowPlacement` to prevent cross-monitor bleed at DPI boundaries.
+- **User-Defined Window Blacklist:** Configurable list of ignored window titles/process names (substring matching), editable from the Settings dialog and persisted in `config.json`.
+- **Improved Ghost Window Filter:** Replaced `GetWindowPlacement` zero-geometry check with physical `GetWindowRect` + strict blacklist to catch phantom windows like Logitech's PnpMgr.
+- **Settings Dialog Overhaul:** Auto-sizing layout (no hardcoded geometry), new "Ignored Windows" field, added Cancel button.
+
+### v1.2 — Robust Window Matching
+- **Multi-Signal Fingerprinting:** Weighted scoring system (process 40 pts, class 20 pts, geometry 30 pts, fuzzy title 10 pts) replaces fragile HWND-based matching.
+- **DWM Cloaking Filter:** Filters out windows cloaked by the Desktop Window Manager (virtual desktops, background UWP apps).
+- **Z-Order Preservation:** Restores windows in reverse EnumWindows order so the topmost window stays on top.
+- **Owner Window Check:** Skips owned windows (using `GW_OWNER`) unless they have `WS_EX_APPWINDOW`.
+
+### v1.1 — Profiles & Settings
+- **4-Slot Profile System:** Save/switch between 4 independent layout profiles from the system tray.
+- **Dynamic Settings Dialog:** Configure hotkeys and rename profiles via a tkinter UI.
+- **Configurable Hotkeys:** User-defined save/restore keyboard shortcuts persisted to config.
 
 ## License
 

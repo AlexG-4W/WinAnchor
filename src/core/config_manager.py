@@ -30,7 +30,8 @@ class ConfigManager:
             "restore_hotkey": "alt+shift+r",
             "exit_hotkey": "ctrl+shift+q",  # Keep exit hotkey standard or also configurable (optional)
             "profile_names": ["Profile 1", "Profile 2", "Profile 3", "Profile 4"],
-            "active_profile_index": 0
+            "active_profile_index": 0,
+            "ignored_windows": ["pnpmgr", "pnpmg"]
         }
         
         try:
